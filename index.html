@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chennai Bus Booking App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { height: 4px; width: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Seat selection styles */
+        .seat {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
+            border: 1px solid #cbd5e1;
+            font-weight: 600;
+        }
+        .seat.available { background-color: #f8fafc; color: #475569; }
+        .seat.available:hover { background-color: #e0e7ff; }
+        .seat.ladies { background-color: #fce7f3; border-color: #f472b6; color: #db2777; }
+        .seat.ladies:hover { background-color: #fbcfe8; }
+        .seat.booked { background-color: #e5e7eb; border-color: #9ca3af; color: #6b7280; cursor: not-allowed; }
+        .seat.selected { background-color: #4f46e5; border-color: #4f46e5; color: white; transform: scale(1.1); }
+        .seat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .aisle { grid-column: 3 / 4; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-2xl flex flex-col">
+        
+        <main class="flex-grow overflow-y-auto pb-20">
+            <!-- Home Screen -->
+            <div id="home" class="screen p-4 fade-in">
+                <header class="flex justify-between items-center mb-6">
+                    <div>
+                        <p class="text-sm text-gray-500">Welcome back,</p>
+                        <h1 class="text-2xl font-bold text-gray-800">Anand</h1>
+                    </div>
+                    <div class="relative">
+                        <i data-lucide="bell" class="text-gray-600"></i>
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
+                    </div>
+                </header>
+                <div id="regular-routes-section" class="mb-6"></div>
+                <div id="frequent-places-section" class="mb-6"></div>
+                <div class="bg-gray-50 p-4 rounded-xl shadow-sm mb-6">
+                    <h2 class="text-lg font-bold text-gray-800 mb-3">Book a New Trip</h2>
+                    <div class="space-y-3">
+                        <div class="relative"><i data-lucide="map-pin" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"></i><input id="from-input" type="text" class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg" placeholder="From: T. Nagar Bus Stand"></div>
+                        <div class="relative"><i data-lucide="flag" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"></i><input id="to-input" type="text" class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg" placeholder="To: Guindy Industrial Estate"></div>
+                    </div>
+                    <button class="action-btn w-full bg-indigo-600 text-white font-bold py-3 rounded-lg mt-4" data-action="find-bus">Find Bus</button>
+                </div>
+                 <div class="bg-blue-50 p-4 rounded-xl mb-6 text-center">
+                    <h2 class="font-semibold text-blue-800">Travel Smarter with a Season Pass</h2>
+                    <p class="text-sm text-blue-700 mt-1">Save up to 30% on your regular trips!</p>
+                    <button class="mt-3 bg-white text-blue-600 font-semibold px-4 py-2 rounded-lg border border-blue-200 text-sm">Explore Passes</button>
+                </div>
+                <div id="past-trips-section" class="mb-6"></div>
+            </div>
+
+            <!-- Search Results Screen -->
+            <div id="search-results" class="screen fade-in">
+                 <header class="p-4 flex items-center bg-white border-b">
+                    <button class="action-btn" data-action="navigate" data-target="home"><i data-lucide="arrow-left"></i></button>
+                    <div class="ml-4">
+                        <h1 class="text-lg font-bold" id="search-results-title"></h1>
+                        <p class="text-sm text-gray-500">Showing 1 bus</p>
+                    </div>
+                </header>
+                <div class="p-4 space-y-4" id="search-results-content"></div>
+            </div>
+
+            <!-- Bus Details Screen -->
+            <div id="bus-details" class="screen fade-in"></div>
+
+            <!-- Ticket Type Screen -->
+            <div id="ticket-type" class="screen fade-in"></div>
+
+            <!-- Standing Booking Screen -->
+            <div id="standing-booking" class="screen fade-in"></div>
+
+            <!-- Seat Selection Screen -->
+            <div id="seat-selection" class="screen fade-in"></div>
+
+            <!-- Payment Screen -->
+            <div id="payment" class="screen fade-in"></div>
+            
+            <!-- Other Screens -->
+            <div id="processing-overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50"><div class="bg-white p-8 rounded-lg flex flex-col items-center"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div><p class="mt-4 text-lg font-semibold text-gray-700">Processing Payment...</p></div></div>
+            <div id="confirmation" class="screen fade-in"></div>
+            <div id="profile" class="screen fade-in p-4"><header class="p-4"><h1 class="text-xl font-bold">Profile</h1></header><div class="p-4 text-gray-500">Profile and Frequent Places settings go here.</div></div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t shadow-t">
+            <div class="flex justify-around">
+                <button data-target="home" class="nav-btn flex-1 flex flex-col items-center p-3 text-indigo-600"><i data-lucide="home"></i><span class="text-xs font-medium mt-1">Home</span></button>
+                <button class="nav-btn flex-1 flex flex-col items-center p-3 text-gray-500"><i data-lucide="calendar-check"></i><span class="text-xs font-medium mt-1">Passes</span></button>
+                <button class="nav-btn flex-1 flex flex-col items-center p-3 text-gray-500"><i data-lucide="ticket"></i><span class="text-xs font-medium mt-1">My Trips</span></button>
+                <button data-target="profile" class="nav-btn flex-1 flex flex-col items-center p-3 text-gray-500"><i data-lucide="user-circle"></i><span class="text-xs font-medium mt-1">Profile</span></button>
+            </div>
+        </nav>
+    </div>
+
+    <script>
+        // --- Simulated Data ---
+        const appData = {
+            frequentPlaces: { home: "T. Nagar", work: "Guindy", gym: "Velachery" },
+            regularRoutes: [
+                { from: "Home", to: "Work", typicalTime: "9:00 AM", bestTime: "8:40 AM", advice: "Less traffic, faster transit.", alert: "Heavy traffic expected near Kathipara Junction due to metro work." },
+                { from: "Work", to: "Home", typicalTime: "6:00 PM", bestTime: "6:30 PM", advice: "Less crowded bus.", alert: null }
+            ],
+            pastTrips: [
+                { from: "T. Nagar", to: "Guindy", bus: "29A", date: "Yesterday" },
+                { from: "Guindy", to: "Velachery", bus: "51G", date: "2 days ago" }
+            ],
+            busDetails: {
+                name: "29A", type: "AC Volvo", totalSeats: 36,
+                ratings: { condition: 4.5, driver: 4.8, conductor: 4.6 },
+                bookedSeats: [3, 7, 11, 15, 22, 28, 31, 35],
+                ladiesSeats: [1, 2, 5, 6], seatPrice: 25, bookingsInLastHour: 12,
+            }
+        };
+
+        // --- State Management ---
+        let currentScreen = 'home';
+        let bookingState = {};
+
+        // --- Core Navigation ---
+        function navigateTo(screenId) {
+            document.querySelectorAll('.screen.active').forEach(s => s.classList.remove('active'));
+            const newScreen = document.getElementById(screenId);
+            if (newScreen) {
+                newScreen.classList.add('active');
+                currentScreen = screenId;
+            }
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.toggle('text-indigo-600', btn.dataset.target === screenId);
+                btn.classList.toggle('text-gray-500', btn.dataset.target !== screenId);
+            });
+            lucide.createIcons();
+        }
+
+        // --- Screen Content Updaters ---
+        function renderHomeScreen() {
+            const regularRoutesEl = document.getElementById('regular-routes-section');
+            let regularRoutesHTML = `<h2 class="text-lg font-bold text-gray-800 mb-3">Your Regular Routes</h2>`;
+            appData.regularRoutes.forEach(route => {
+                const from = appData.frequentPlaces[route.from.toLowerCase()] || route.from;
+                const to = appData.frequentPlaces[route.to.toLowerCase()] || route.to;
+                regularRoutesHTML += `
+                    <div class="bg-white p-4 rounded-xl border shadow-sm mb-3">
+                        <div class="flex justify-between items-start">
+                            <div><p class="font-bold">${from} → ${to}</p><p class="text-sm text-gray-500">Your usual time: ${route.typicalTime}</p></div>
+                            <button class="action-btn text-sm font-semibold text-indigo-600" data-action="find-bus" data-from="${from}" data-to="${to}">Book Now</button>
+                        </div>
+                        <div class="mt-3 pt-3 border-t text-sm space-y-2">
+                            <div class="flex items-center text-green-600"><i data-lucide="clock" class="h-4 w-4 mr-2"></i><span>Best time to travel: <span class="font-semibold">${route.bestTime}</span> (${route.advice})</span></div>
+                            ${route.alert ? `<div class="flex items-center text-red-600"><i data-lucide="alert-triangle" class="h-4 w-4 mr-2"></i><span class="font-semibold">${route.alert}</span></div>` : ''}
+                        </div>
+                    </div>`;
+            });
+            regularRoutesEl.innerHTML = regularRoutesHTML;
+
+            const pastTripsEl = document.getElementById('past-trips-section');
+            let pastTripsHTML = `<h2 class="text-lg font-bold text-gray-800 mb-3">Past Trips</h2><div class="flex overflow-x-auto space-x-3 pb-2">`;
+            appData.pastTrips.forEach(trip => {
+                pastTripsHTML += `
+                    <div class="flex-shrink-0 w-64 bg-white p-4 rounded-lg border">
+                        <p class="font-semibold">${trip.from} → ${trip.to}</p><p class="text-sm text-gray-500">Bus ${trip.bus} (${trip.date})</p>
+                        <button class="action-btn mt-3 text-sm font-semibold text-indigo-600" data-action="find-bus" data-from="${trip.from}" data-to="${trip.to}">Book Again</button>
+                    </div>`;
+            });
+            pastTripsEl.innerHTML = pastTripsHTML + `</div>`;
+
+            const frequentPlacesEl = document.getElementById('frequent-places-section');
+            frequentPlacesEl.innerHTML = `
+                <h2 class="text-lg font-bold text-gray-800 mb-3">Quick Book</h2>
+                <div class="grid grid-cols-4 gap-4 text-center">
+                    <div class="flex flex-col items-center"><button class="action-btn w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center" data-action="quick-book" data-place="home"><i data-lucide="home" class="text-gray-600"></i></button><p class="text-xs mt-2">Home</p></div>
+                    <div class="flex flex-col items-center"><button class="action-btn w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center" data-action="quick-book" data-place="work"><i data-lucide="briefcase" class="text-gray-600"></i></button><p class="text-xs mt-2">Work</p></div>
+                    <div class="flex flex-col items-center"><button class="action-btn w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center" data-action="quick-book" data-place="gym"><i data-lucide="dumbbell" class="text-gray-600"></i></button><p class="text-xs mt-2">Gym</p></div>
+                    <div class="flex flex-col items-center"><button class="nav-btn w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center" data-target="profile"><i data-lucide="plus" class="text-gray-600"></i></button><p class="text-xs mt-2">Add New</p></div>
+                </div>`;
+        }
+        
+        function updateSearchResultsScreen() {
+            const { from, to } = bookingState;
+            document.getElementById('search-results-title').textContent = `${from} → ${to}`;
+            const contentEl = document.getElementById('search-results-content');
+            const bus = appData.busDetails;
+            const occupancy = bus.bookedSeats.length / bus.totalSeats;
+            let crowdStatus, crowdColor;
+            if (occupancy < 0.3) { crowdStatus = "Not Crowded"; crowdColor = "text-green-600"; }
+            else if (occupancy < 0.7) { crowdStatus = "Moderately Crowded"; crowdColor = "text-orange-600"; }
+            else { crowdStatus = "Very Crowded"; crowdColor = "text-red-600"; }
+
+            contentEl.innerHTML = `
+                <div class="bg-white p-4 rounded-xl border shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div><p class="font-bold text-lg">Bus ${bus.name}</p><p class="text-sm text-gray-500">Perambur - Besant Nagar</p></div>
+                        <div class="text-right"><p class="font-bold text-xl text-indigo-600">from ₹15</p><p class="text-xs text-green-600 font-semibold">Arrives in 5 mins</p></div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t flex justify-between items-center">
+                        <div class="flex items-center space-x-2 text-sm"><i data-lucide="users" class="${crowdColor}"></i><span class="${crowdColor} font-medium">${crowdStatus}</span></div>
+                        <button class="action-btn bg-indigo-100 text-indigo-700 font-semibold px-4 py-2 rounded-lg text-sm" data-action="navigate" data-target="bus-details">Select Bus</button>
+                    </div>
+                </div>`;
+        }
+
+        function renderBusDetailsScreen() {
+            const container = document.getElementById('bus-details');
+            const bus = appData.busDetails;
+            const occupancy = bus.bookedSeats.length / bus.totalSeats;
+            let crowdStatus, crowdColor;
+            if (occupancy < 0.3) { crowdStatus = "Not Crowded"; crowdColor = "text-green-600"; }
+            else if (occupancy < 0.7) { crowdStatus = "Moderately Crowded"; crowdColor = "text-orange-600"; }
+            else { crowdStatus = "Very Crowded"; crowdColor = "text-red-600"; }
+            const seatsBookedRecently = Math.floor(bus.bookingsInLastHour / 2);
+
+            container.innerHTML = `
+                <header class="p-4 flex items-center bg-white border-b"><button class="action-btn" data-action="navigate" data-target="search-results"><i data-lucide="arrow-left"></i></button><div class="ml-4"><h1 class="text-lg font-bold">Bus ${bus.name} Details</h1><p class="text-sm text-gray-500">${bookingState.from} → ${bookingState.to}</p></div></header>
+                <div class="p-4">
+                    <div class="bg-white p-4 rounded-xl border mb-4">
+                        <div class="flex justify-between items-center"><div><p class="font-bold text-lg">${bus.type}</p><p class="text-sm text-gray-500">TN 01 N 4567</p></div><div class="text-right"><p class="font-bold text-xl text-indigo-600">from ₹15</p><p class="text-sm text-green-600 font-semibold">ETA: 5 mins</p></div></div>
+                        <div class="mt-4 pt-4 border-t space-y-2 text-sm">
+                            <div class="flex items-center text-red-600"><i data-lucide="trending-up" class="mr-2 h-4 w-4"></i><span class="font-semibold">Filling fast!</span> ${seatsBookedRecently} seats booked in last 30 mins.</div>
+                            <div class="flex items-center ${crowdColor}"><i data-lucide="users" class="mr-2 h-4 w-4"></i>Estimated to be <span class="font-semibold ml-1">${crowdStatus.toLowerCase()}</span>.</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border mb-4">
+                        <h2 class="font-bold text-gray-800 mb-3">Ratings (${bus.totalSeats - bus.bookedSeats.length} seats available)</h2>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between items-center"><p>Bus Condition</p><div class="flex items-center space-x-1 text-yellow-500"><i data-lucide="star" class="h-4 w-4 fill-current"></i><span>${bus.ratings.condition}</span></div></div>
+                            <div class="flex justify-between items-center"><p>Driver</p><div class="flex items-center space-x-1 text-yellow-500"><i data-lucide="star" class="h-4 w-4 fill-current"></i><span>${bus.ratings.driver}</span></div></div>
+                            <div class="flex justify-between items-center"><p>Conductor</p><div class="flex items-center space-x-1 text-yellow-500"><i data-lucide="star" class="h-4 w-4 fill-current"></i><span>${bus.ratings.conductor}</span></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white border-t"><button class="action-btn w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg" data-action="navigate" data-target="ticket-type">Book Ticket</button></div>`;
+        }
+        
+        function renderTicketTypeScreen() {
+             document.getElementById('ticket-type').innerHTML = `
+                <header class="p-4 flex items-center bg-white border-b"><button class="action-btn" data-action="navigate" data-target="bus-details"><i data-lucide="arrow-left"></i></button><h1 class="text-lg font-bold ml-4">Choose Ticket Type</h1></header>
+                <div class="p-4 space-y-4">
+                    <div class="bg-white p-4 rounded-xl border cursor-pointer hover:border-indigo-500 transition-all action-btn" data-action="navigate" data-target="seat-selection">
+                        <div class="flex items-center"><i data-lucide="armchair" class="h-8 w-8 mr-4 text-indigo-600"></i><div><h2 class="font-bold text-lg">Book a Seat</h2><p class="text-sm text-gray-600">Choose your preferred seat. Price from ₹${appData.busDetails.seatPrice}.</p></div><i data-lucide="chevron-right" class="ml-auto text-gray-400"></i></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border cursor-pointer hover:border-indigo-500 transition-all action-btn" data-action="navigate" data-target="standing-booking">
+                        <div class="flex items-center"><i data-lucide="user-standing" class="h-8 w-8 mr-4 text-indigo-600"></i><div><h2 class="font-bold text-lg">Book Standing Ticket</h2><p class="text-sm text-gray-600">Travel standing at a fixed price of ₹15.</p></div><i data-lucide="chevron-right" class="ml-auto text-gray-400"></i></div>
+                    </div>
+                </div>`;
+        }
+
+        function renderStandingBookingScreen() {
+            bookingState.ticket = { type: 'standing', count: 1, price: 15 };
+            const container = document.getElementById('standing-booking');
+            container.innerHTML = `
+                <header class="p-4 flex items-center bg-white border-b"><button class="action-btn" data-action="navigate" data-target="ticket-type"><i data-lucide="arrow-left"></i></button><h1 class="text-lg font-bold ml-4">Standing Tickets</h1></header>
+                <div class="p-4">
+                    <div class="bg-white p-6 rounded-xl border text-center">
+                        <h2 class="font-bold text-lg">Select Quantity</h2>
+                        <p class="text-gray-600 mt-1">Fixed price: ₹15 per ticket</p>
+                        <div class="flex items-center justify-center space-x-6 my-6">
+                            <button class="action-btn bg-gray-200 w-12 h-12 rounded-full text-2xl font-bold" data-action="standing-change" data-amount="-1">-</button>
+                            <span id="standing-count" class="font-bold text-4xl w-12 text-center">1</span>
+                            <button class="action-btn bg-gray-200 w-12 h-12 rounded-full text-2xl font-bold" data-action="standing-change" data-amount="1">+</button>
+                        </div>
+                        <p class="text-sm text-gray-500">Max 5 tickets per booking</p>
+                    </div>
+                </div>
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white border-t">
+                    <div class="flex justify-between items-center mb-2"><p id="standing-summary">1 Ticket</p><p id="standing-total-price" class="font-bold text-xl">₹15</p></div>
+                    <button class="action-btn w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg" data-action="navigate" data-target="payment">Proceed to Pay</button>
+                </div>`;
+            updateStandingSummary();
+        }
+
+        function renderSeatSelectionScreen() {
+             bookingState.ticket = { type: 'seat', seatNumber: null, price: 0 };
+             const container = document.getElementById('seat-selection');
+             container.innerHTML = `
+                <header class="p-4 flex items-center bg-white border-b"><button class="action-btn" data-action="navigate" data-target="ticket-type"><i data-lucide="arrow-left"></i></button><h1 class="text-lg font-bold ml-4">Select Your Seat</h1></header>
+                <div class="p-4">
+                    <div class="bg-white p-4 rounded-xl border">
+                        <div class="flex justify-around text-xs mb-4 text-gray-600">
+                            <div class="flex items-center"><div class="w-4 h-4 border rounded mr-2"></div>Available</div>
+                            <div class="flex items-center"><div class="w-4 h-4 bg-pink-100 border-pink-400 rounded mr-2"></div>Ladies</div>
+                            <div class="flex items-center"><div class="w-4 h-4 bg-gray-200 rounded mr-2"></div>Booked</div>
+                             <div class="flex items-center"><div class="w-4 h-4 bg-indigo-500 border-indigo-500 rounded mr-2"></div>Selected</div>
+                        </div>
+                        <div id="seat-map-container" class="bg-gray-50 p-4 rounded-lg"></div>
+                    </div>
+                </div>
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white border-t">
+                    <div class="flex justify-between items-center mb-2"><p id="seat-summary">Select a seat</p><p id="seat-total-price" class="font-bold text-xl"></p></div>
+                    <button id="seat-proceed-btn" class="action-btn w-full bg-indigo-600 text-white font-bold py-3.5 rounded-lg disabled:bg-gray-400" data-action="navigate" data-target="payment" disabled>Proceed to Pay</button>
+                </div>`;
+            renderSeatMap();
+            updateSeatSummary();
+        }
+        
+        function renderPaymentScreen() {
+            const container = document.getElementById('payment');
+            const { price, type, count, seatNumber } = bookingState.ticket;
+            let summaryText = `For Bus ${appData.busDetails.name}, `;
+            if (type === 'seat') { summaryText += `Seat ${seatNumber}`; } 
+            else { summaryText += `${count} Standing Ticket(s)`; }
+
+            container.innerHTML = `
+                <header class="p-4 flex items-center bg-white border-b"><button class="action-btn" data-action="navigate" data-target="${bookingState.ticket.type === 'seat' ? 'seat-selection' : 'standing-booking'}"><i data-lucide="arrow-left"></i></button><h1 class="text-lg font-bold ml-4">Confirm Payment</h1></header>
+                <div class="p-4">
+                    <div class="bg-white p-4 rounded-xl border mb-4">
+                        <p class="text-sm text-gray-500">You are paying</p>
+                        <p class="text-4xl font-bold text-gray-800">₹${price}.00</p>
+                        <p class="mt-2 text-gray-600">${summaryText}</p>
+                    </div>
+                    <h2 class="font-bold text-gray-800 mb-3">Select Payment Method</h2>
+                    <div class="space-y-3">
+                        <label class="flex items-center p-4 border rounded-lg has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500 transition-all"><img src="https://placehold.co/40x40/E9D5FF/6D28D9?text=UPI" class="rounded-md mr-4" alt="UPI" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E9D5FF/6D28D9?text=UPI';"><span class="font-semibold">UPI / QR</span><input type="radio" name="payment-method" class="ml-auto" checked></label>
+                        <label class="flex items-center p-4 border rounded-lg has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500 transition-all"><img src="https://placehold.co/40x40/C7D2FE/4338CA?text=Card" class="rounded-md mr-4" alt="Card" onerror="this.onerror=null;this.src='https://placehold.co/40x40/C7D2FE/4338CA?text=Card';"><span class="font-semibold">Credit/Debit Card</span><input type="radio" name="payment-method" class="ml-auto"></label>
+                        <label class="flex items-center p-4 border rounded-lg has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500 transition-all"><img src="https://placehold.co/40x40/A5F3FC/0891B2?text=NB" class="rounded-md mr-4" alt="Net Banking" onerror="this.onerror=null;this.src='https://placehold.co/40x40/A5F3FC/0891B2?text=NB';"><span class="font-semibold">Net Banking</span><input type="radio" name="payment-method" class="ml-auto"></label>
+                    </div>
+                </div>
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white border-t"><button class="action-btn w-full bg-green-600 text-white font-bold py-3.5 rounded-lg" data-action="pay">Pay Securely</button></div>`;
+        }
+
+        function renderConfirmationScreen() {
+            document.getElementById('confirmation').innerHTML = `
+                <div class="flex flex-col items-center justify-center text-center p-4 h-full">
+                    <div class="bg-green-100 rounded-full p-4"><i data-lucide="check" class="h-16 w-16 text-green-600"></i></div>
+                    <h1 class="text-2xl font-bold mt-6">Booking Confirmed!</h1>
+                    <p class="text-gray-600 mt-2">Your QR ticket is ready.</p>
+                    <div class="bg-white p-4 rounded-lg mt-8 shadow-lg"><img src="https://placehold.co/200x200/FFFFFF/000000?text=QR+Code" alt="QR Code" class="rounded-md" onerror="this.onerror=null;this.src='https://placehold.co/200x200/FFFFFF/000000?text=QR';"></div>
+                    <p class="mt-4 font-semibold">Bus ${appData.busDetails.name} - ${bookingState.from} to ${bookingState.to}</p>
+                    <button class="action-btn w-full max-w-xs mt-8 bg-indigo-600 text-white font-bold py-3.5 rounded-lg" data-action="navigate" data-target="home">Back to Home</button>
+                </div>`;
+        }
+
+        // --- Component Rendering ---
+        function renderSeatMap() {
+            const container = document.getElementById('seat-map-container');
+            if (!container) return;
+            container.innerHTML = `<div class="flex justify-between items-center mb-4 px-2"><i data-lucide="circle-user-round" class="h-8 w-8 text-gray-600" title="Driver"></i><i data-lucide="door-open" class="h-8 w-8 text-gray-600" title="Exit"></i></div>`;
+            const bus = appData.busDetails;
+            let seatNumber = 1;
+            const rows = Math.ceil(bus.totalSeats / 4);
+            
+            for (let i = 0; i < rows; i++) {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'seat-row mb-2';
+                for (let j = 0; j < 5; j++) {
+                    if (j === 2) { rowEl.innerHTML += `<div class="aisle"></div>`; continue; }
+                    if (seatNumber > bus.totalSeats) continue;
+                    let classes = 'seat action-btn';
+                    if (bus.bookedSeats.includes(seatNumber)) classes += ' booked';
+                    else if (bus.ladiesSeats.includes(seatNumber)) classes += ' ladies';
+                    else classes += ' available';
+                    rowEl.innerHTML += `<div class="${classes}" data-action="select-seat" data-seat-number="${seatNumber}">${seatNumber}</div>`;
+                    seatNumber++;
+                }
+                container.appendChild(rowEl);
+            }
+        }
+
+        // --- Update Functions ---
+        function updateStandingSummary() {
+            const { count, price } = bookingState.ticket;
+            document.getElementById('standing-count').textContent = count;
+            document.getElementById('standing-summary').textContent = `${count} Ticket(s)`;
+            document.getElementById('standing-total-price').textContent = `₹${price}`;
+        }
+
+        function updateSeatSummary() {
+            const { seatNumber, price } = bookingState.ticket;
+            const summaryEl = document.getElementById('seat-summary');
+            const priceEl = document.getElementById('seat-total-price');
+            const proceedBtn = document.getElementById('seat-proceed-btn');
+
+            if (seatNumber) {
+                summaryEl.textContent = `Seat ${seatNumber}`;
+                priceEl.textContent = `₹${price}`;
+                proceedBtn.disabled = false;
+            } else {
+                summaryEl.textContent = 'Select a seat';
+                priceEl.textContent = '';
+                proceedBtn.disabled = true;
+            }
+        }
+
+        // --- Event Delegation ---
+        document.getElementById('app-container').addEventListener('click', function(e) {
+            const target = e.target.closest('.action-btn, .nav-btn');
+            if (!target) return;
+
+            const { action, target: targetScreen, from, to, place, amount, seatNumber } = target.dataset;
+
+            if (target.classList.contains('nav-btn')) {
+                if (targetScreen) navigateTo(targetScreen);
+                return;
+            }
+
+            switch(action) {
+                case 'navigate':
+                    if (targetScreen === 'bus-details') renderBusDetailsScreen();
+                    if (targetScreen === 'ticket-type') renderTicketTypeScreen();
+                    if (targetScreen === 'seat-selection') renderSeatSelectionScreen();
+                    if (targetScreen === 'standing-booking') renderStandingBookingScreen();
+                    if (targetScreen === 'payment') renderPaymentScreen(); // FIX: ensure payment screen renders
+                    navigateTo(targetScreen);
+                    break;
+                case 'find-bus':
+                    bookingState.from = from || document.getElementById('from-input').value || 'T. Nagar';
+                    bookingState.to = to || document.getElementById('to-input').value || 'Guindy';
+                    updateSearchResultsScreen();
+                    navigateTo('search-results');
+                    break;
+                case 'quick-book':
+                    bookingState.from = appData.frequentPlaces[place];
+                    bookingState.to = place === 'home' ? appData.frequentPlaces.work : appData.frequentPlaces.home;
+                    document.getElementById('from-input').value = bookingState.from;
+                    document.getElementById('to-input').value = bookingState.to;
+                    updateSearchResultsScreen();
+                    navigateTo('search-results');
+                    break;
+                case 'standing-change':
+                    let newCount = bookingState.ticket.count + parseInt(amount);
+                    if (newCount >= 1 && newCount <= 5) {
+                        bookingState.ticket.count = newCount;
+                        bookingState.ticket.price = newCount * 15;
+                        updateStandingSummary();
+                    }
+                    break;
+                case 'select-seat':
+                    if (target.classList.contains('booked')) return;
+                    document.querySelectorAll('.seat.selected').forEach(s => s.classList.remove('selected'));
+                    
+                    const num = parseInt(seatNumber);
+                    if (bookingState.ticket.seatNumber === num) {
+                        bookingState.ticket.seatNumber = null;
+                        bookingState.ticket.price = 0;
+                    } else {
+                        target.classList.add('selected');
+                        bookingState.ticket.seatNumber = num;
+                        bookingState.ticket.price = appData.busDetails.seatPrice;
+                    }
+                    updateSeatSummary();
+                    break;
+                case 'pay':
+                    const overlay = document.getElementById('processing-overlay');
+                    overlay.classList.remove('hidden');
+                    overlay.classList.add('flex');
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        renderConfirmationScreen();
+                        navigateTo('confirmation');
+                    }, 2000);
+                    break;
+            }
+        });
+
+        // --- DOM Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderHomeScreen();
+            navigateTo('home');
+        });
+    </script>
+</body>
+</html>
